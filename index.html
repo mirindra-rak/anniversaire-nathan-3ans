@@ -601,5 +601,213 @@
   </div>
 
 </div>
+
+<script>
+(function() {
+  let ctx = null;
+  let started = false;
+
+  // SMB1 Overworld — from robsoncouto/arduino-songs exact transcription
+  // Format: [MIDI note, duration divisor] — 0=rest
+  // Divisor: 8=eighth, 4=quarter, -4=dotted quarter, -8=dotted eighth, 2=half, 1=whole
+  const BPM = 200;
+  const WHOLE = (60 * 4) / BPM; // whole note in seconds
+
+  function dur(d) { return d > 0 ? WHOLE / d : (WHOLE / Math.abs(d)) * 1.5; }
+  const freq = (m) => m === 0 ? 0 : 440 * Math.pow(2, (m - 69) / 12);
+
+  // MIDI: C4=60 D4=62 E4=64 F4=65 G4=67 G#4=68 A4=69 Bb4=70 B4=71
+  //       C5=72 D5=74 Eb5=75 E5=76 F5=77 F#5=78 G5=79 A5=81 C6=84
+
+  // Exact melody from Arduino transcription
+  const melodyData = [
+    // Section A — intro + main theme
+    76,8, 76,8, 0,8, 76,8, 0,8, 72,8, 76,8,
+    79,4, 0,4, 67,8, 0,4,
+    // C5(dotted quarter) G4(eighth) rest(quarter) E4(dotted quarter)
+    72,-4, 67,8, 0,4, 64,-4,
+    // A4 B4 Bb4 A4
+    69,4, 71,4, 70,8, 69,4,
+    // G4(dotted eighth) E5(dotted eighth) G5(dotted eighth) A5 F5 G5
+    67,-8, 76,-8, 79,-8, 81,4, 77,8, 79,8,
+    // rest E5 C5 D5 B4(dotted quarter)
+    0,8, 76,4, 72,8, 74,8, 71,-4,
+
+    // Repeat of A
+    72,-4, 67,8, 0,4, 64,-4,
+    69,4, 71,4, 70,8, 69,4,
+    67,-8, 76,-8, 79,-8, 81,4, 77,8, 79,8,
+    0,8, 76,4, 72,8, 74,8, 71,-4,
+
+    // Section B — bridge
+    0,4, 79,8, 78,8, 77,8, 75,4, 76,8,
+    0,8, 68,8, 69,8, 72,8, 0,8, 69,8, 72,8, 74,8,
+    0,4, 79,8, 78,8, 77,8, 75,4, 76,8,
+    0,8, 84,4, 84,8, 84,4, 0,4,
+    0,4, 79,8, 78,8, 77,8, 75,4, 76,8,
+    0,8, 68,8, 69,8, 72,8, 0,8, 69,8, 72,8, 74,8,
+    0,4, 75,4, 0,8, 74,-4, 72,2, 0,2,
+
+    // Section C — variation
+    72,8, 72,4, 72,8, 0,8, 72,8, 74,4,
+    76,8, 72,4, 69,8, 67,2,
+    72,8, 72,4, 72,8, 0,8, 72,8, 74,8, 76,8,
+    0,1,
+    72,8, 72,4, 72,8, 0,8, 72,8, 74,4,
+    76,8, 72,4, 69,8, 67,2,
+    // Back to intro motif
+    76,8, 76,8, 0,8, 76,8, 0,8, 72,8, 76,8,
+    79,4, 0,4, 67,4, 0,4,
+  ];
+
+  // Parse flat array into [note, durationSec] pairs
+  const melody = [];
+  for (let i = 0; i < melodyData.length; i += 2) {
+    melody.push([melodyData[i], dur(melodyData[i+1])]);
+  }
+
+  // Kick + snare + hi-hat
+  const Q = WHOLE / 4, E = WHOLE / 8;
+
+  function playDrums(startTime, duration) {
+    if (!ctx) return;
+    let t = startTime;
+    while (t < startTime + duration) {
+      playKick(t);
+      playKick(t + Q*2);
+      playSnare(t + Q);
+      playSnare(t + Q*3);
+      for (let i = 0; i < 8; i++) {
+        playHiHat(t + E*i, i%2===0 ? 0.022 : 0.012);
+      }
+      t += Q*4;
+    }
+  }
+
+  function playKick(t) {
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(150, t);
+    osc.frequency.exponentialRampToValueAtTime(40, t+0.1);
+    g.gain.setValueAtTime(0.15, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t+0.15);
+    osc.connect(g); g.connect(ctx.destination);
+    osc.start(t); osc.stop(t+0.2);
+  }
+
+  function playSnare(t) {
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'triangle'; osc.frequency.value = 200;
+    g.gain.setValueAtTime(0.06, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t+0.08);
+    osc.connect(g); g.connect(ctx.destination);
+    osc.start(t); osc.stop(t+0.1);
+    const bufSize = ctx.sampleRate * 0.05;
+    const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) d[i] = Math.random()*2-1;
+    const ns = ctx.createBufferSource();
+    const ng = ctx.createGain();
+    ns.buffer = buf;
+    ng.gain.setValueAtTime(0.05, t);
+    ng.gain.exponentialRampToValueAtTime(0.001, t+0.06);
+    ns.connect(ng); ng.connect(ctx.destination);
+    ns.start(t); ns.stop(t+0.07);
+  }
+
+  function playHiHat(t, vol) {
+    const bufSize = ctx.sampleRate * 0.025;
+    const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) d[i] = Math.random()*2-1;
+    const ns = ctx.createBufferSource();
+    const g = ctx.createGain();
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = 8000; bp.Q.value = 1;
+    ns.buffer = buf;
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t+0.025);
+    ns.connect(bp); bp.connect(g); g.connect(ctx.destination);
+    ns.start(t); ns.stop(t+0.03);
+  }
+
+  // Lead synth: filtered sawtooth + sine body
+  function playLead(f, start, d, vol) {
+    if (f <= 0 || !ctx) return;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    const flt = ctx.createBiquadFilter();
+    osc.type = 'sawtooth'; osc.frequency.value = f;
+    flt.type = 'lowpass';
+    flt.frequency.setValueAtTime(f*4, start);
+    flt.frequency.exponentialRampToValueAtTime(f*1.5, start+d*0.8);
+    flt.Q.value = 2;
+    g.gain.setValueAtTime(vol, start);
+    g.gain.setValueAtTime(vol*0.7, start+d*0.5);
+    g.gain.exponentialRampToValueAtTime(0.001, start+d*0.9);
+    osc.connect(flt); flt.connect(g); g.connect(ctx.destination);
+    osc.start(start); osc.stop(start+d+0.02);
+    const sub = ctx.createOscillator();
+    const sg = ctx.createGain();
+    sub.type = 'sine'; sub.frequency.value = f;
+    sg.gain.setValueAtTime(vol*0.5, start);
+    sg.gain.exponentialRampToValueAtTime(0.001, start+d*0.85);
+    sub.connect(sg); sg.connect(ctx.destination);
+    sub.start(start); sub.stop(start+d+0.02);
+  }
+
+  // Bass synth: filtered square
+  function playBassNote(f, start, d, vol) {
+    if (f <= 0 || !ctx) return;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    const flt = ctx.createBiquadFilter();
+    osc.type = 'square'; osc.frequency.value = f;
+    flt.type = 'lowpass'; flt.frequency.value = f*3; flt.Q.value = 3;
+    g.gain.setValueAtTime(vol, start);
+    g.gain.setValueAtTime(vol*0.6, start+d*0.4);
+    g.gain.exponentialRampToValueAtTime(0.001, start+d*0.85);
+    osc.connect(flt); flt.connect(g); g.connect(ctx.destination);
+    osc.start(start); osc.stop(start+d+0.02);
+  }
+
+  function playAll() {
+    if (!ctx || !started) return;
+    let t = ctx.currentTime + 0.1;
+    let totalDur = 0;
+
+    // Play melody + auto bass (melody transposed -24 semitones)
+    melody.forEach(([note, d]) => {
+      const f = freq(note);
+      playLead(f, t, d, 0.055);
+      // Bass: play melody notes 2 octaves lower
+      if (note > 0) {
+        playBassNote(freq(note - 24), t, d, 0.06);
+      }
+      totalDur += d;
+      t += d;
+    });
+
+    playDrums(ctx.currentTime + 0.1, totalDur);
+    setTimeout(() => { if (started) playAll(); }, totalDur * 1000 + 50);
+  }
+
+  function startMusic() {
+    if (started) return;
+    started = true;
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (ctx.state === 'suspended') ctx.resume();
+    playAll();
+    document.removeEventListener('click', startMusic);
+    document.removeEventListener('touchstart', startMusic);
+  }
+
+  document.addEventListener('click', startMusic);
+  document.addEventListener('touchstart', startMusic);
+})();
+</script>
+</div>
 </body>
 </html>
