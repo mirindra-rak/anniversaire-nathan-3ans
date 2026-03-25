@@ -975,28 +975,34 @@
   function startMusic() {
     if (started) return;
     started = true;
-    ctx = new (window.AudioContext || window.webkitAudioContext)();
-    var silentBuf = ctx.createBuffer(1, 1, 22050);
-    var silentSrc = ctx.createBufferSource();
-    silentSrc.buffer = silentBuf;
-    silentSrc.connect(ctx.destination);
-    silentSrc.start(0);
-    if (ctx.state === 'suspended') ctx.resume();
-    playAll();
+    try {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch(e) { return; }
+    // iOS unlock: resume() must be called in user gesture, then wait for it
+    var p = ctx.resume();
+    if (p && p.then) {
+      p.then(function() { playAll(); });
+    } else {
+      playAll();
+    }
   }
 
-  function launch() {
-    var splash = document.getElementById('splash');
-    var poster = document.querySelector('.poster');
-    splash.style.display = 'none';
-    poster.style.display = '';
+  var launched = false;
+  function launch(e) {
+    if (launched) return;
+    launched = true;
+    if (e) e.preventDefault();
     startMusic();
-    splash.removeEventListener('click', launch);
-    splash.removeEventListener('touchend', launch);
+    // Small delay to let AudioContext unlock before hiding splash
+    setTimeout(function() {
+      document.getElementById('splash').style.display = 'none';
+      document.querySelector('.poster').style.display = '';
+    }, 100);
   }
 
-  document.getElementById('splash').addEventListener('click', launch);
-  document.getElementById('splash').addEventListener('touchend', launch);
+  var sp = document.getElementById('splash');
+  sp.addEventListener('touchend', launch, false);
+  sp.addEventListener('click', launch, false);
 })();
 </script>
 </div>
