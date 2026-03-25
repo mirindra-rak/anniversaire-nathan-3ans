@@ -953,14 +953,17 @@
     if (started) return;
     started = true;
     ctx = new (window.AudioContext || window.webkitAudioContext)();
-    if (ctx.state === 'suspended') ctx.resume();
-    playAll();
+    ctx.resume().then(function() {
+      playAll();
+    });
     document.removeEventListener('click', startMusic);
     document.removeEventListener('touchstart', startMusic);
+    document.removeEventListener('touchend', startMusic);
   }
 
   document.addEventListener('click', startMusic);
-  document.addEventListener('touchstart', startMusic);
+  document.addEventListener('touchstart', startMusic, { passive: true });
+  document.addEventListener('touchend', startMusic);
 })();
 </script>
 </div>
