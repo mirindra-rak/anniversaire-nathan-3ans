@@ -631,7 +631,30 @@
 </style>
 </head>
 <body>
-<div class="poster">
+
+<!-- Splash screen -->
+<div id="splash" style="
+  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999;
+  background: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+">
+  <div style="font-family: 'Bangers', cursive; font-size: clamp(28px, 8vw, 60px); color: #FFD54F;
+    text-shadow: 3px 3px 0 #E65100, -1px -1px 0 #E65100, 1px -1px 0 #E65100, -1px 1px 0 #E65100;
+    animation: bounce 1.5s ease-in-out infinite; text-align: center; padding: 0 20px;">
+    🎮 Super Nathan 🎮
+  </div>
+  <div style="font-family: 'Fredoka', sans-serif; font-size: clamp(14px, 4vw, 22px); color: white;
+    margin-top: 30px; animation: twinkle 2s ease-in-out infinite;">
+    ⭐ Appuie pour commencer ! ⭐
+  </div>
+  <div style="font-family: 'Fredoka', sans-serif; font-size: clamp(40px, 12vw, 80px); margin-top: 20px;
+    animation: bounce 2s ease-in-out infinite;">
+    🍄
+  </div>
+</div>
+
+<div class="poster" style="display:none;">
 
   <!-- Clouds animated -->
   <div class="clouds">
@@ -953,8 +976,6 @@
     if (started) return;
     started = true;
     ctx = new (window.AudioContext || window.webkitAudioContext)();
-    // Create a silent buffer and play it immediately in the user gesture call stack
-    // This unlocks audio on iOS Safari
     var silentBuf = ctx.createBuffer(1, 1, 22050);
     var silentSrc = ctx.createBufferSource();
     silentSrc.buffer = silentBuf;
@@ -962,14 +983,20 @@
     silentSrc.start(0);
     if (ctx.state === 'suspended') ctx.resume();
     playAll();
-    document.removeEventListener('click', startMusic);
-    document.removeEventListener('touchstart', startMusic);
-    document.removeEventListener('touchend', startMusic);
   }
 
-  document.addEventListener('click', startMusic);
-  document.addEventListener('touchstart', startMusic, { passive: true });
-  document.addEventListener('touchend', startMusic);
+  function launch() {
+    var splash = document.getElementById('splash');
+    var poster = document.querySelector('.poster');
+    splash.style.display = 'none';
+    poster.style.display = '';
+    startMusic();
+    splash.removeEventListener('click', launch);
+    splash.removeEventListener('touchend', launch);
+  }
+
+  document.getElementById('splash').addEventListener('click', launch);
+  document.getElementById('splash').addEventListener('touchend', launch);
 })();
 </script>
 </div>
