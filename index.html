@@ -731,10 +731,7 @@
   <!-- PHOTOS -->
   <div class="photos-section">
     <div class="photo-frame">
-      <img src="images/IMG_0801_Original.JPG" alt="Nathan">
-    </div>
-    <div class="photo-frame">
-      <img src="images/IMG_0807_cropped.JPG" alt="Nathan et famille">
+      <img src="images/IMG_0804.JPG" alt="Nathan">
     </div>
   </div>
 
@@ -972,32 +969,45 @@
     setTimeout(() => { if (started) playAll(); }, totalDur * 1000 + 50);
   }
 
-  function startMusic() {
+  function unlockAndPlay() {
     if (started) return;
     started = true;
     try {
       ctx = new (window.AudioContext || window.webkitAudioContext)();
     } catch(e) { return; }
-    // iOS unlock: resume() must be called in user gesture, then wait for it
-    var p = ctx.resume();
-    if (p && p.then) {
-      p.then(function() { playAll(); });
-    } else {
-      playAll();
-    }
+
+    // iOS unlock: play a silent oscillator in the user gesture call stack
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    gain.gain.value = 0;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(0);
+    osc.stop(ctx.currentTime + 0.001);
+
+    ctx.resume();
+
+    // Poll until AudioContext is actually running, then play
+    var attempts = 0;
+    var check = setInterval(function() {
+      attempts++;
+      if (ctx.state === 'running' || attempts > 20) {
+        clearInterval(check);
+        playAll();
+      }
+    }, 50);
   }
 
   var launched = false;
   function launch(e) {
     if (launched) return;
     launched = true;
-    if (e) e.preventDefault();
-    startMusic();
-    // Small delay to let AudioContext unlock before hiding splash
+    if (e && e.type === 'touchend') e.preventDefault();
+    unlockAndPlay();
     setTimeout(function() {
       document.getElementById('splash').style.display = 'none';
       document.querySelector('.poster').style.display = '';
-    }, 100);
+    }, 200);
   }
 
   var sp = document.getElementById('splash');
