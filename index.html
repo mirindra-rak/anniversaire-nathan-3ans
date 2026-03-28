@@ -425,6 +425,22 @@
     letter-spacing: 3px;
     animation: bounce 1.5s ease-in-out infinite;
   }
+  .play-btn {
+    display: inline-block;
+    margin-top: 1vh;
+    padding: 8px 24px;
+    background: linear-gradient(135deg, #F44336, #D32F2F);
+    color: #FFD600;
+    font-family: 'Bangers', cursive;
+    font-size: clamp(18px, 3.5vw, 28px);
+    text-decoration: none;
+    border-radius: 12px;
+    border: 3px solid #FFEB3B;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    letter-spacing: 2px;
+    animation: badgePulse 2s ease-in-out infinite;
+    text-shadow: 2px 2px 0 rgba(0,0,0,0.3);
+  }
 
   /* Ground & Pipes */
   .ground-section {
@@ -760,6 +776,7 @@
   <!-- Bottom text -->
   <div class="bottom-text">
     <div class="party-text">LET'S-A GO !</div>
+    <a href="game.html" class="play-btn">JOUER !</a>
   </div>
 
   <!-- Pipes & Ground -->
